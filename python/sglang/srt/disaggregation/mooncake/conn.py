@@ -353,6 +353,12 @@ class MooncakeKVManager(StagingManagerMixin, CommonKVManager):
         page_size: int,
         slot_layer_ids: Optional[List[int]] = None,
     ):
+        from sglang.srt.disaggregation.common.staging_buffer import (
+            _kv_buffers_preserve_16_byte_alignment,
+        )
+
+        head_dim = k_buffers[0].shape[-1]
+        stride_pool_token = k_buffers[0].shape[1] * head_dim
         # slot_layer_ids follows the staging slot order (every k_buffer, then
         # every v_buffer), which is not kv_args.kv_layer_ids once a draft exists.
         self.kv_buffer_tensors = {
@@ -360,6 +366,13 @@ class MooncakeKVManager(StagingManagerMixin, CommonKVManager):
             "v_buffers": v_buffers,
             "page_size": page_size,
             "slot_layer_ids": list(slot_layer_ids or []),
+            "staging_copy_buffers_aligned_16": (
+                _kv_buffers_preserve_16_byte_alignment(
+                    k_buffers + v_buffers,
+                    stride_pool_token=stride_pool_token,
+                    head_dim=head_dim,
+                )
+            ),
         }
 
     def _register_staging_memory(self, ptr: int, size: int) -> None:
@@ -609,6 +622,9 @@ class MooncakeKVManager(StagingManagerMixin, CommonKVManager):
             num_heads_to_send,
             page_size,
             self.kv_args.gpu_id,
+            buffers_aligned_16=self.kv_buffer_tensors.get(
+                "staging_copy_buffers_aligned_16"
+            ),
         )
 
         if pairs is None:

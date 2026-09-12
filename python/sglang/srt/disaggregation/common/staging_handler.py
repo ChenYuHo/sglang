@@ -447,6 +447,9 @@ class DecodeStagingHandler:
                 self.decode_tp,
                 dst_tp_rank,
                 self.total_kv_heads,
+                buffers_aligned_16=self.kv_buffer_info.get(
+                    "staging_copy_buffers_aligned_16"
+                ),
             )
 
         return True
